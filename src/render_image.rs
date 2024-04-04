@@ -1,10 +1,10 @@
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::{mpsc, Arc}, thread};
 
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use wgpu::{util::DeviceExt, DeviceDescriptor, Instance, PowerPreference, RequestAdapterOptions};
 use winit::{event::{Event, WindowEvent}, event_loop::EventLoop, window::Window};
 
-pub async fn render_images() {
+pub async fn render_images() -> mpsc::Receiver<(Frame, u128, u128)> {
     // setup
     let ev = EventLoop::new().unwrap();
     let window = Arc::new(Window::new(&ev).unwrap());
@@ -203,6 +203,57 @@ pub async fn render_images() {
         multiview: None,
     });
         
+    let (frame_send, frame_recv) = mpsc::channel();
+    let start = std::time::Instant::now();
+
+    let (img_send, img_recv) = mpsc::channel::<Option<Box<ImageBuffer<Rgba<u8>, _>>>>();
+    let (img_stat_send, img_stat_recv) = mpsc::channel::<u32>();
+    let img_thread = thread::spawn(move || {
+        let mut render_frame = 0;
+        let mut loader_frame = 1;
+
+        let mut workers: Vec<(u32, mpsc::Sender<Option<u32>>, mpsc::Receiver<Option<Box<ImageBuffer<Rgba<u8>, _>>>>)> = (0..10).map(|_| {
+            let (img_send, img_recv) = mpsc::channel::<Option<Box<ImageBuffer<Rgba<u8>, _>>>>();
+            let (inst_send, inst_recv) = mpsc::channel::<Option<u32>>();
+            thread::spawn(move || {
+                loop {
+                    // println!("worker {:?} waiting for frame", thread::current().id());
+                    if let Ok(Some(inst)) = inst_recv.recv() {
+                        // println!("worker {:?} loading frame {}", thread::current().id(), inst);
+                        let img = image::open(format!("res/frame{}.ppm", inst));
+                        img_send.send(img.map(|x| Box::new(x.to_rgba8())).ok()).unwrap();
+                        // println!("worker {:?} loaded frame {}", thread::current().id(), inst);
+                    } else { break };
+                }
+            });
+            (0, inst_send, img_recv)
+        }).collect();
+        loop {
+            if let Ok(new_render_frame) = img_stat_recv.try_recv() {
+                render_frame = new_render_frame;
+            }
+
+            if loader_frame < render_frame + 9 {
+                let worker = loader_frame % workers.len() as u32;
+                // println!("assigning frame {} to worker {}", loader_frame, worker);
+                workers[worker as usize].0 = loader_frame;
+                workers[worker as usize].1.send(Some(loader_frame)).unwrap();
+                loader_frame += 1;
+            } else {
+                if let Ok(new_render_frame) = img_stat_recv.recv() {
+                    render_frame = new_render_frame;
+                    let worker = render_frame % workers.len() as u32;
+                    if workers[worker as usize].0 == render_frame {
+                        let img = workers[worker as usize].2.recv().unwrap();
+                        img_send.send(img).unwrap();
+                    } else {
+                        panic!("workers overflowed :(");
+                    }
+                }
+            }
+        }
+    });
+
     // event loop
     ev.run(move |event, elwt| match event {
         Event::WindowEvent {
@@ -233,9 +284,19 @@ pub async fn render_images() {
                             });
                         
                         frame_index += 1;
-                        let new_img = image::open(format!("res/frame{}.ppm", frame_index)).unwrap();
-                        let image_rgba = new_img.to_rgba8();
+                        if let Err(_) = img_stat_send.send(frame_index) {
+                            return;
+                        }
+                        let loc_start = start.elapsed().as_micros();
+                        let new_img = img_recv.recv();
+                        let image_rgba = *if let Ok(Some(new_img)) = new_img {
+                            new_img
+                        } else {
+                            return;
+                        };
+                        frame_send.send((Frame::LoadImage, loc_start, start.elapsed().as_micros())).unwrap();
                     
+                        let loc_start = start.elapsed().as_micros();
                         queue.write_texture(
                             wgpu::ImageCopyTexture {
                                 texture: &texture,
@@ -251,6 +312,7 @@ pub async fn render_images() {
                             },
                             texture_size,
                         );
+                        frame_send.send((Frame::SendTexture, loc_start, start.elapsed().as_micros())).unwrap();
                         //
                         {
                             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -274,8 +336,10 @@ pub async fn render_images() {
                             rpass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                             rpass.draw_indexed(0..num_indices, 0, 0..1);
                         }
+                        let loc_start = start.elapsed().as_micros();
                         queue.submit(std::iter::once(encoder.finish()));
                         output.present();
+                        frame_send.send((Frame::Render, loc_start, start.elapsed().as_micros())).unwrap();
                     },
                     Err(_) => todo!(),
                 };
@@ -286,13 +350,24 @@ pub async fn render_images() {
         _ => {}
     })
     .unwrap();
+
+    // img_thread.join().unwrap();
+
+    frame_recv
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Frame {
+    LoadImage,
+    SendTexture,
+    Render
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
-    tex_coords: [f32; 2], // NEW!
+    tex_coords: [f32; 2],
 }
 
 impl Vertex {
