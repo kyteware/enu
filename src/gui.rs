@@ -1,19 +1,19 @@
-use iced::{widget::{button, column, row, text}, Color, Command, Element, Length, Theme};
+use iced::{widget::{button, column, row, slider, text}, Color, Command, Element, Length, Theme};
 use iced_wgpu::Renderer;
 use iced_winit::runtime::Program;
 
 pub struct Gui {
-    num: u32
+    pub num: f32
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Button
+    UpdateNum(f32)
 }
 
 impl Gui {
     pub fn new() -> Gui {
-        Gui { num: 1 }
+        Gui { num: 1. }
     }
 
     pub fn background_color(&self) -> Color {
@@ -28,16 +28,16 @@ impl Program for Gui {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
-            Message::Button => {
-                self.num += 1;
-            },
+            Message::UpdateNum(num) => {
+                self.num = num
+            }
         }
 
         Command::none()
     }
 
     fn view(&self) -> Element<Message, Theme, Renderer> {
-        let sources = column!(button("source 1"), button("source 2"));
+        let sources = column!(button("source 1"), button("source 2"), slider(0.0..=1.0, self.num, Message::UpdateNum).step(0.1).width(20));
         let timeline = column!(button("timeline 1 --------------------------"), button("timeline 2 -----------------"));
         let playback = text("playback here");
 

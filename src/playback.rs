@@ -1,10 +1,11 @@
 use iced::Color;
-use wgpu::util::DeviceExt;
-use winit::dpi::PhysicalSize;
+use wgpu::{util::DeviceExt, BindGroupLayoutDescriptor};
 
 pub struct Playback {
     pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer
+    vertex_buffer: wgpu::Buffer,
+    bg: wgpu::BindGroup,
+    pub alpha_buf: wgpu::Buffer
 }
 
 impl Playback {
@@ -22,12 +23,41 @@ impl Playback {
             usage: wgpu::BufferUsages::VERTEX,
             contents: bytemuck::cast_slice(VERTICES)
         });
+
+        let alpha_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Alpha"),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            contents: bytemuck::cast_slice(&[0.5f32])
+        });
+
+        let bgl = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("bgl"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: Some(4.try_into().unwrap()) },
+                    count: None
+                }
+            ]
+        });
+
+        let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Bind group"),
+            layout: &bgl,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: alpha_buf.as_entire_binding()
+                }
+            ]
+        });
     
         let pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
                 push_constant_ranges: &[],
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&bgl],
             });
     
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -64,7 +94,7 @@ impl Playback {
             multiview: None,
         });
 
-        Playback { pipeline, vertex_buffer }
+        Playback { pipeline, vertex_buffer, bg, alpha_buf }
     }
 
     pub fn clear<'a>(
@@ -80,6 +110,7 @@ impl Playback {
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear({
                         let [r, g, b, a] = background_color.into_linear();
+                        
 
                         wgpu::Color {
                             r: r as f64,
@@ -99,6 +130,7 @@ impl Playback {
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, &self.bg, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw(0..6, 0..1);
     }
