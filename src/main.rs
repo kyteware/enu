@@ -47,7 +47,7 @@ async fn main() {
         .copied()
         .find(|f| f.is_srgb())
         .unwrap_or(surface_caps.formats[0]);
-    let mut config = wgpu::SurfaceConfiguration {
+    let config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: surface_format,
         width: physical_size.width,
@@ -77,7 +77,6 @@ async fn main() {
     );
 
     event_loop.run(move |event, window_target| {
-        // You should change this if you want to render continuously
         window_target.set_control_flow(winit::event_loop::ControlFlow::Wait);
         match event {
             Event::WindowEvent {
@@ -90,23 +89,22 @@ async fn main() {
                             &wgpu::CommandEncoderDescriptor { label: None },
                         );
 
+                        let clear_color = state.program().background_color();
+
                         let view = frame.texture.create_view(
                             &wgpu::TextureViewDescriptor::default(),
                         );
 
                         {
-                            // We clear the frame
                             let mut render_pass = Playback::clear(
                                 &view,
                                 &mut encoder,
-                                Color::BLACK,
+                                Color::new(0.2, 0.2, 0.2, 1.),
                             );
 
-                            // Draw the scene
                             playback.draw(&mut render_pass);
                         }
 
-                        // And then iced on top
                         renderer.with_primitives(|backend, primitive| {
                             backend.present(
                                 &device,
@@ -121,11 +119,9 @@ async fn main() {
                             );
                         });
 
-                        // Then we submit the work
                         queue.submit(Some(encoder.finish()));
                         frame.present();
 
-                        // Update the mouse cursor
                         window.set_cursor_icon(
                             iced_winit::conversion::mouse_interaction(
                                 state.mouse_interaction(),
