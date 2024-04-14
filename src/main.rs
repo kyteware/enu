@@ -99,7 +99,7 @@ async fn main() {
                             let mut render_pass = Playback::clear(
                                 &view,
                                 &mut encoder,
-                                Color::new(0.2, 0.2, 0.2, 1.),
+                                clear_color,
                             );
 
                             playback.draw(&mut render_pass);
