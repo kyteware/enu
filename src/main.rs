@@ -152,10 +152,10 @@ async fn main() {
                         modifiers = new_modifiers.state();
                     }
                     WindowEvent::Resized(_) => {
-                        let size = window.inner_size();
+                        physical_size = window.inner_size();
 
                         viewport = Viewport::with_physical_size(
-                            Size::new(size.width, size.height),
+                            Size::new(physical_size.width, physical_size.height),
                             window.scale_factor(),
                         );
 
@@ -164,8 +164,8 @@ async fn main() {
                             &wgpu::SurfaceConfiguration {
                                 format: surface_format,
                                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                                width: size.width,
-                                height: size.height,
+                                width: physical_size.width,
+                                height: physical_size.height,
                                 present_mode: wgpu::PresentMode::AutoVsync,
                                 alpha_mode: wgpu::CompositeAlphaMode::Auto,
                                 view_formats: vec![],
