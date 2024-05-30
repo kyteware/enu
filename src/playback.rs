@@ -8,6 +8,13 @@ pub struct Playback {
     pub alpha_buf: wgpu::Buffer
 }
 
+pub struct PlaybackViewport {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32
+}
+
 impl Playback {
     pub fn new(
         device: &wgpu::Device,
@@ -128,10 +135,11 @@ impl Playback {
         })
     }
 
-    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, vp: &PlaybackViewport) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bg, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_viewport(vp.x, vp.y, vp.w, vp.h, 0., 1.);
         render_pass.draw(0..6, 0..1);
     }
 }
@@ -153,24 +161,19 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2, // NEW!
-                },
+                    format: wgpu::VertexFormat::Float32x2,
+                }
             ]
         }
     }
 }
 
 const VERTICES: &[Vertex] = &[
-    Vertex { x: 0., y: 1. },
+    Vertex { x: -1., y: 1. },
     Vertex { x: 1., y: 1. },
-    Vertex { x: 1., y: 0. },
+    Vertex { x: 1., y: -1. },
 
-    Vertex { x: 0., y: 1. },
-    Vertex { x: 1., y: 0. },
-    Vertex { x: 0., y: 0. },
+    Vertex { x: 1., y: -1. },
+    Vertex { x: -1., y: 1. },
+    Vertex { x: -1., y: -1. },
 ];

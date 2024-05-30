@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use enu::{gui::Gui, playback::Playback};
+use enu::{gui::Gui, playback::{Playback, PlaybackViewport}};
 use iced::{mouse, Color, Font, Pixels, Size, Theme};
 use iced_wgpu::{core::renderer, graphics::Viewport, Backend, Renderer, Settings};
 use iced_winit::{conversion, runtime::{program, Debug}, Clipboard};
@@ -102,7 +102,7 @@ async fn main() {
                                 clear_color,
                             );
 
-                            playback.draw(&mut render_pass);
+                            playback.draw(&mut render_pass, &PlaybackViewport { x: physical_size.width as f32 / 2., y: 0., w: physical_size.width as f32 / 2., h: physical_size.height as f32 / 2. });
                         }
 
                         renderer.with_primitives(|backend, primitive| {
