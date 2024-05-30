@@ -61,7 +61,7 @@ async fn main() {
 
     // CREATE GUI, LOADER AND VIEWPORT HERE
     let gui = Gui::new();
-    let playback = Playback::new(&device, surface_format);
+    let playback = Playback::new(&device, &queue, surface_format);
 
     let mut debug = Debug::new();
     let mut renderer = Renderer::new(
@@ -119,7 +119,6 @@ async fn main() {
                             );
                         });
 
-                        queue.write_buffer(&playback.alpha_buf, 0, bytemuck::cast_slice(&[state.program().num]));
                         queue.submit(Some(encoder.finish()));
                         frame.present();
 
