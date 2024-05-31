@@ -1,80 +1,14 @@
-use std::sync::Arc;
-use enu::{gui::Gui, playback::{Playback, PlaybackViewport}};
+use enu::{gui::Gui, playback::{Playback, PlaybackViewport}, runtime_helpers::{init_gui, init_wgpu_winit}};
 use iced::{mouse, Color, Font, Pixels, Size, Theme};
 use iced_wgpu::{core::renderer, graphics::Viewport, Backend, Renderer, Settings};
 use iced_winit::{conversion, runtime::{program, Debug}, Clipboard};
-use winit::{event::{Event, WindowEvent}, event_loop::EventLoop, keyboard::ModifiersState, window::WindowBuilder};
+use winit::{event::{Event, WindowEvent}, keyboard::ModifiersState};
 
 #[pollster::main]
 async fn main() {
-    let event_loop = EventLoop::new().unwrap();
-    let window = Arc::new(WindowBuilder::new().with_title("Enu").build(&event_loop).unwrap());
-    let mut physical_size = window.inner_size();
-    let mut viewport = Viewport::with_physical_size(
-        Size::new(physical_size.width, physical_size.height),
-        window.scale_factor(),
-    );
-    let mut cursor_position = None;
-    let mut modifiers = ModifiersState::default();
-    let mut clipboard = Clipboard::connect(&window);
-
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
-    let surface = instance.create_surface(window.clone()).unwrap();
-    let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        })
-        .await
-        .unwrap();
-    let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                label: None,
-            },
-            None,
-        )
-        .await
-        .unwrap();
-    
-    let surface_caps = surface.get_capabilities(&adapter);
-    let surface_format = surface_caps
-        .formats
-        .iter()
-        .copied()
-        .find(|f| f.is_srgb())
-        .unwrap_or(surface_caps.formats[0]);
-    let config = wgpu::SurfaceConfiguration {
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        format: surface_format,
-        width: physical_size.width,
-        height: physical_size.height,
-        present_mode: surface_caps.present_modes[0],
-        alpha_mode: surface_caps.alpha_modes[0],
-        view_formats: vec![],
-        desired_maximum_frame_latency: 2,
-    };
-    surface.configure(&device, &config);
-
-    // CREATE GUI, LOADER AND VIEWPORT HERE
-    let gui = Gui::new();
-    let playback = Playback::new(&device, &queue, surface_format);
-
-    let mut debug = Debug::new();
-    let mut renderer = Renderer::new(
-        Backend::new(&device, &queue, Settings::default(), surface_format),
-        Font::default(),
-        Pixels(16.0),
-    );
-    let mut state = program::State::new(
-        gui,
-        viewport.logical_size(),
-        &mut renderer,
-        &mut debug,
-    );
+    let (event_loop, window, mut physical_size, surface, device, queue, config) = init_wgpu_winit().await;
+    let (mut viewport, mut cursor_pos, mut modifiers, mut clipboard, mut debug, mut renderer, mut state) = init_gui(physical_size, window.clone(), &device, &queue, config.format);
+    let playback = Playback::new(&device, &queue, config.format);
 
     event_loop.run(move |event, window_target| {
         window_target.set_control_flow(winit::event_loop::ControlFlow::Wait);
@@ -145,7 +79,7 @@ async fn main() {
             Event::WindowEvent { event, .. } => {
                 match event {
                     WindowEvent::CursorMoved { position, .. } => {
-                        cursor_position = Some(position);
+                        cursor_pos = Some(position);
                     }
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         modifiers = new_modifiers.state();
@@ -161,7 +95,7 @@ async fn main() {
                         surface.configure(
                             &device,
                             &wgpu::SurfaceConfiguration {
-                                format: surface_format,
+                                format: config.format,
                                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
                                 width: physical_size.width,
                                 height: physical_size.height,
@@ -196,7 +130,7 @@ async fn main() {
             // We update iced
             let _ = state.update(
                 viewport.logical_size(),
-                cursor_position
+                cursor_pos
                     .map(|p| {
                         conversion::cursor_position(p, viewport.scale_factor())
                     })

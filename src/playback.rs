@@ -181,7 +181,6 @@ impl Playback {
                     load: wgpu::LoadOp::Clear({
                         let [r, g, b, a] = background_color.into_linear();
                         
-
                         wgpu::Color {
                             r: r as f64,
                             g: g as f64,
