@@ -2,15 +2,36 @@ use std::sync::Arc;
 
 use iced::{Font, Pixels, Size};
 use iced_wgpu::{graphics::Viewport, Backend, Renderer, Settings};
-use iced_winit::{runtime::{program::State, Debug}, Clipboard};
+use iced_winit::{
+    runtime::{program::State, Debug},
+    Clipboard,
+};
 use wgpu::{Device, Queue, Surface, SurfaceConfiguration, TextureFormat};
-use winit::{dpi::{PhysicalPosition, PhysicalSize}, event_loop::EventLoop, keyboard::ModifiersState, window::{Window, WindowBuilder}};
+use winit::{
+    dpi::{PhysicalPosition, PhysicalSize},
+    event_loop::EventLoop,
+    keyboard::ModifiersState,
+    window::{Window, WindowBuilder},
+};
 
 use crate::gui::Gui;
 
-pub async fn init_wgpu_winit<'a>() -> (EventLoop<()>, Arc<Window>, PhysicalSize<u32>, Surface<'a>, Device, Queue, SurfaceConfiguration) {
+pub async fn init_wgpu_winit<'a>() -> (
+    EventLoop<()>,
+    Arc<Window>,
+    PhysicalSize<u32>,
+    Surface<'a>,
+    Device,
+    Queue,
+    SurfaceConfiguration,
+) {
     let event_loop = EventLoop::new().unwrap();
-    let window = Arc::new(WindowBuilder::new().with_title("Enu").build(&event_loop).unwrap());
+    let window = Arc::new(
+        WindowBuilder::new()
+            .with_title("Enu")
+            .build(&event_loop)
+            .unwrap(),
+    );
     let physical_size = window.inner_size();
 
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
@@ -34,7 +55,7 @@ pub async fn init_wgpu_winit<'a>() -> (EventLoop<()>, Arc<Window>, PhysicalSize<
         )
         .await
         .unwrap();
-    
+
     let surface_caps = surface.get_capabilities(&adapter);
     let surface_format = surface_caps
         .formats
@@ -54,10 +75,32 @@ pub async fn init_wgpu_winit<'a>() -> (EventLoop<()>, Arc<Window>, PhysicalSize<
     };
     surface.configure(&device, &config);
 
-    (event_loop, window, physical_size, surface, device, queue, config)
+    (
+        event_loop,
+        window,
+        physical_size,
+        surface,
+        device,
+        queue,
+        config,
+    )
 }
 
-pub fn init_gui(physical_size: PhysicalSize<u32>, window: Arc<Window>, device: &Device, queue: &Queue, surface_format: TextureFormat) -> (Viewport, Option<PhysicalPosition<f64>>, ModifiersState, Clipboard, Debug, Renderer, State<Gui>) {
+pub fn init_gui(
+    physical_size: PhysicalSize<u32>,
+    window: Arc<Window>,
+    device: &Device,
+    queue: &Queue,
+    surface_format: TextureFormat,
+) -> (
+    Viewport,
+    Option<PhysicalPosition<f64>>,
+    ModifiersState,
+    Clipboard,
+    Debug,
+    Renderer,
+    State<Gui>,
+) {
     let viewport = Viewport::with_physical_size(
         Size::new(physical_size.width, physical_size.height),
         window.scale_factor(),
@@ -78,5 +121,13 @@ pub fn init_gui(physical_size: PhysicalSize<u32>, window: Arc<Window>, device: &
 
     let state = State::new(gui, viewport.logical_size(), &mut renderer, &mut debug);
 
-    (viewport, cursor_position, modifiers, clipboard, debug, renderer, state)
+    (
+        viewport,
+        cursor_position,
+        modifiers,
+        clipboard,
+        debug,
+        renderer,
+        state,
+    )
 }
