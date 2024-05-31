@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use iced::{Font, Pixels, Size};
 use iced_wgpu::{graphics::Viewport, Backend, Renderer, Settings};
-use iced_winit::{runtime::{program::State, Debug, Program}, Clipboard};
+use iced_winit::{runtime::{program::State, Debug}, Clipboard};
 use wgpu::{Device, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, event_loop::EventLoop, keyboard::ModifiersState, window::{Window, WindowBuilder}};
 

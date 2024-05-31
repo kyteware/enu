@@ -1,8 +1,8 @@
-use enu::{gui::Gui, playback::{Playback, PlaybackViewport}, runtime_helpers::{init_gui, init_wgpu_winit}};
-use iced::{mouse, Color, Font, Pixels, Size, Theme};
-use iced_wgpu::{core::renderer, graphics::Viewport, Backend, Renderer, Settings};
-use iced_winit::{conversion, runtime::{program, Debug}, Clipboard};
-use winit::{event::{Event, WindowEvent}, keyboard::ModifiersState};
+use enu::{playback::{Playback, PlaybackViewport}, runtime_helpers::{init_gui, init_wgpu_winit}};
+use iced::{mouse, Color, Size, Theme};
+use iced_wgpu::{core::renderer, graphics::Viewport};
+use iced_winit::{conversion};
+use winit::{event::{Event, WindowEvent}};
 
 #[pollster::main]
 async fn main() {

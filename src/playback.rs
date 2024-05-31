@@ -1,4 +1,3 @@
-use ffmpeg::device::input::video;
 use iced::Color;
 use wgpu::{util::DeviceExt, BindGroupLayoutDescriptor, BindingResource, BufferAddress, Queue, Texture};
 use winit::dpi::PhysicalSize;
