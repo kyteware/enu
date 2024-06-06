@@ -4,7 +4,10 @@ pub mod gui;
 use std::sync::Arc;
 
 use gui::GuiRuntime;
-use iced_winit::{conversion::mouse_interaction, winit as winit};
+use iced::{mouse::Cursor, window::Id, Color, Size, Theme};
+use iced_wgpu::graphics::Viewport;
+use iced_winit::{conversion::{cursor_position, mouse_interaction, window_event}, core::renderer::Style, winit as winit};
+use wgpu::{CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureUsages};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop, ControlFlow}, window::{Window, WindowId}};
 
 use gpu::GpuState;
@@ -114,7 +117,67 @@ impl<'a> ApplicationHandler for App<'a> {
 
                 window.request_redraw();
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                gui_runtime.cursor_position = Some(position)
+            }
+            WindowEvent::ModifiersChanged(new_modifiers) => {
+                gui_runtime.modifiers = new_modifiers.state();
+            }
+            WindowEvent::Resized(new_size) => {
+                gui_runtime.viewport = Viewport::with_physical_size(Size::new(new_size.width, new_size.height), window.scale_factor());
+
+                let new_surface_config = SurfaceConfiguration {
+                    usage: TextureUsages::RENDER_ATTACHMENT, 
+                    format: gpu_state.surface_config.format, 
+                    width: new_size.width, 
+                    height: new_size.height, 
+                    present_mode: PresentMode::AutoVsync,
+                    alpha_mode: CompositeAlphaMode::Auto,
+                    view_formats: vec![],
+                    desired_maximum_frame_latency: 2
+                };
+
+                gpu_state.surface.configure(
+                    &gpu_state.device,
+                    &new_surface_config
+                );
+
+                gpu_state.surface_config = new_surface_config;
+            }
             _ => (),
+        }
+
+        if let Some(event) = window_event(
+            Id::MAIN,
+            event,
+            window.scale_factor(),
+            gui_runtime.modifiers
+        ) {
+            gui_runtime.state.queue_event(event)
+        }
+
+        if !gui_runtime.state.is_queue_empty() {
+            let _ = gui_runtime.state.update(
+                gui_runtime.viewport.logical_size(),
+                gui_runtime.cursor_position
+                    .map(|p| {
+                        cursor_position(
+                            p,
+                            gui_runtime.viewport.scale_factor(),
+                        )
+                    })
+                    .map(Cursor::Available)
+                    .unwrap_or(Cursor::Unavailable),
+                    &mut gui_runtime.renderer,
+                &Theme::Dark,
+                &Style {
+                    text_color: Color::WHITE,
+                },
+                &mut gui_runtime.clipboard,
+                &mut gui_runtime.debug,
+            );
+
+            window.request_redraw();
         }
     }
 }

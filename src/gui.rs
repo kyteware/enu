@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use iced::{widget::text, Command, Font, Pixels, Size, Theme};
+use iced::{widget::{button, text}, Command, Font, Pixels, Size, Theme};
 use iced_wgpu::{graphics::Viewport, Engine, Renderer};
 use iced_winit::{runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window}, Clipboard};
 
@@ -23,16 +23,19 @@ impl Program for Gui {
     type Theme = Theme;
     type Message = Message;
 
-    fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        if message == Message::Oy {
+            println!("hi")
+        }
         Command::none()
     }
 
     fn view(&self) -> iced_wgpu::core::Element<'_, Self::Message, Self::Theme, Self::Renderer> {
-        text(&self.text).into()
+        button(self.text.as_str()).on_press(Message::Oy).into()
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     Oy
 }
