@@ -1,8 +1,10 @@
 pub mod gpu;
+pub mod gui;
 
 use std::sync::Arc;
 
-use iced_winit::winit as winit;
+use gui::GuiRuntime;
+use iced_winit::{conversion::mouse_interaction, winit as winit};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop, ControlFlow}, window::{Window, WindowId}};
 
 use gpu::GpuState;
@@ -15,32 +17,47 @@ fn main() {
     event_loop.run_app(&mut app).unwrap();
 }
 
-struct App<'a> {
-    window: Option<Arc<Window>>,
-    gpu_state: Option<GpuState<'a>>
+enum App<'a> {
+    Running(AppRuntime<'a>),
+    Paused
 }
 
 impl<'a> App<'a> {
     fn new() -> Self {
-        App {
-            window: None,
-            gpu_state: None
+        App::Paused
+    }
+
+    fn unwrap_running(&mut self) -> &mut AppRuntime<'a> {
+        if let App::Running(runtime) = self {
+            runtime
+        } else {
+            panic!("couldn't unwrap running app")
         }
+    }
+}
+
+struct AppRuntime<'a> {
+    window: Arc<Window>,
+    gpu_state: GpuState<'a>,
+    gui_runtime: GuiRuntime
+}
+
+impl<'a> AppRuntime<'a> {
+    fn init(event_loop: &ActiveEventLoop) -> AppRuntime<'a> {
+        let window = Arc::new(event_loop.create_window(Window::default_attributes()).unwrap());
+        let gpu_state = pollster::block_on(GpuState::init(window.clone()));
+        let gui_runtime = GuiRuntime::init(window.clone(), &gpu_state);
+        AppRuntime { window, gpu_state, gui_runtime }
     }
 }
 
 impl<'a> ApplicationHandler for App<'a> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        println!("oy");
-        self.window = Some(Arc::new(event_loop.create_window(Window::default_attributes()).unwrap()));
-        self.gpu_state = Some(pollster::block_on(GpuState::init(self.window.as_ref().unwrap().clone())));
+        *self = App::Running(AppRuntime::init(event_loop))
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        println!("oyyyyy {:?}", event);
-        let App { window, gpu_state } = self;
-        let window = window.as_ref().unwrap().clone();
-        let gpu_state = gpu_state.as_mut().unwrap();
+        let AppRuntime { window, gpu_state, gui_runtime } = self.unwrap_running();
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
@@ -53,18 +70,33 @@ impl<'a> ApplicationHandler for App<'a> {
                             label: None,
                         });
 
-                        let clear_color = [1., 1., 1., 1.];
+                        let clear_color = [0.5, 0.5, 0.5, 1.];
 
                         let view = frame
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default());
 
                         {
-                            let _render_pass = GpuState::clear(&view, &mut encoder, clear_color);
+                            let mut render_pass = GpuState::clear(&view, &mut encoder, clear_color);
+                            render_pass.set_viewport(10., 10., 100., 100., 0., 1.)
                         }
 
-                        gpu_state.queue.submit(Some(encoder.finish()));
+                        gui_runtime.renderer.present(
+                            &mut gui_runtime.engine,
+                            &gpu_state.device,
+                            &gpu_state.queue,
+                            &mut encoder,
+                            None,
+                            frame.texture.format(),
+                            &view,
+                            &gui_runtime.viewport,
+                            &gui_runtime.debug.overlay()
+                        );
+
+                        gui_runtime.engine.submit(&gpu_state.queue, encoder); // replaces encoder.submit
                         frame.present();
+
+                        window.set_cursor(mouse_interaction(gui_runtime.state.mouse_interaction()))
                     }
                     Err(error) => match error {
                         wgpu::SurfaceError::OutOfMemory => {
@@ -80,7 +112,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     },
                 }
 
-                self.window.as_ref().unwrap().request_redraw();
+                window.request_redraw();
             }
             _ => (),
         }
