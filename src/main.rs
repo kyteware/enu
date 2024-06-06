@@ -1,5 +1,6 @@
 pub mod gpu;
 pub mod gui;
+pub mod playback;
 
 use std::sync::Arc;
 
@@ -80,8 +81,8 @@ impl<'a> ApplicationHandler for App<'a> {
                             .create_view(&wgpu::TextureViewDescriptor::default());
 
                         {
-                            let mut render_pass = GpuState::clear(&view, &mut encoder, clear_color);
-                            render_pass.set_viewport(10., 10., 100., 100., 0., 1.)
+                            let mut render_pass = GpuState::begin_render_pass(&view, &mut encoder, clear_color);
+                            // render_pass.set_viewport(10., 10., 100., 100., 0., 1.)
                         }
 
                         gui_runtime.renderer.present(

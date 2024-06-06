@@ -66,7 +66,7 @@ impl<'window> GpuState<'window> {
         }                                                                
     }
 
-    pub fn clear<'a>(
+    pub fn begin_render_pass<'a>(
         target: &'a TextureView,
         encoder: &'a mut CommandEncoder,
         background_color: [f32; 4],
