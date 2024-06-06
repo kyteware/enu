@@ -1,5 +1,6 @@
 pub mod gpu;
 pub mod gui;
+pub mod playback;
 
 use std::sync::Arc;
 
@@ -7,6 +8,7 @@ use gui::GuiRuntime;
 use iced::Size;
 use iced_wgpu::graphics::Viewport;
 use iced_winit::{conversion::mouse_interaction, winit as winit};
+use playback::Playback;
 use wgpu::{CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureUsages};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop, ControlFlow}, window::{Window, WindowId}};
 
@@ -42,7 +44,8 @@ impl<'a> App<'a> {
 struct AppRuntime<'a> {
     window: Arc<Window>,
     gpu_state: GpuState<'a>,
-    gui_runtime: GuiRuntime
+    gui_runtime: GuiRuntime,
+    playback: Playback
 }
 
 impl<'a> AppRuntime<'a> {
@@ -50,7 +53,8 @@ impl<'a> AppRuntime<'a> {
         let window = Arc::new(event_loop.create_window(Window::default_attributes()).unwrap());
         let gpu_state = pollster::block_on(GpuState::init(window.clone()));
         let gui_runtime = GuiRuntime::init(window.clone(), &gpu_state);
-        AppRuntime { window, gpu_state, gui_runtime }
+        let playback = Playback::init(&gpu_state);
+        AppRuntime { window, gpu_state, gui_runtime, playback }
     }
 }
 
@@ -60,7 +64,11 @@ impl<'a> ApplicationHandler for App<'a> {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        let AppRuntime { window, gpu_state, gui_runtime } = self.unwrap_running();
+        let AppRuntime { window, gpu_state, gui_runtime, playback } = self.unwrap_running();
+
+        gui_runtime.process_event(event.clone(), window.clone());
+
+
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
@@ -81,7 +89,7 @@ impl<'a> ApplicationHandler for App<'a> {
 
                         {
                             let mut render_pass = GpuState::begin_render_pass(&view, &mut encoder, clear_color);
-                            // render_pass.set_viewport(10., 10., 100., 100., 0., 1.)
+                            playback.draw(&mut render_pass)
                         }
 
                         gui_runtime.renderer.present(
@@ -146,7 +154,5 @@ impl<'a> ApplicationHandler for App<'a> {
             }
             _ => (),
         }
-
-        gui_runtime.process_event(event, window.clone())
     }
 }

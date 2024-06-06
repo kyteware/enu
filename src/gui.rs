@@ -4,16 +4,19 @@ use iced::{mouse::Cursor, widget::button, window::Id, Color, Command, Font, Pixe
 use iced_wgpu::{core::renderer::Style, graphics::Viewport, Engine, Renderer};
 use iced_winit::{conversion::{cursor_position, window_event}, runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, event::WindowEvent, keyboard::ModifiersState, window::Window}, Clipboard};
 
-use crate::gpu::GpuState;
+use crate::{gpu::GpuState, playback::PlaybackInstruction};
 
 pub struct Gui {
+    /// The instructions for the playback (should be cleared before each update)
+    pub playback_instructions: Vec<PlaybackInstruction>,
     text: String
 }
 
 impl Gui {
     pub fn new() -> Gui {
         Gui {
-            text: "bobb".into()
+            text: "bobb".into(),
+            playback_instructions: vec![]
         }
     }
 }
