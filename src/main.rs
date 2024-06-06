@@ -4,9 +4,9 @@ pub mod gui;
 use std::sync::Arc;
 
 use gui::GuiRuntime;
-use iced::{mouse::Cursor, window::Id, Color, Size, Theme};
+use iced::Size;
 use iced_wgpu::graphics::Viewport;
-use iced_winit::{conversion::{cursor_position, mouse_interaction, window_event}, core::renderer::Style, winit as winit};
+use iced_winit::{conversion::mouse_interaction, winit as winit};
 use wgpu::{CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureUsages};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop, ControlFlow}, window::{Window, WindowId}};
 
@@ -147,37 +147,6 @@ impl<'a> ApplicationHandler for App<'a> {
             _ => (),
         }
 
-        if let Some(event) = window_event(
-            Id::MAIN,
-            event,
-            window.scale_factor(),
-            gui_runtime.modifiers
-        ) {
-            gui_runtime.state.queue_event(event)
-        }
-
-        if !gui_runtime.state.is_queue_empty() {
-            let _ = gui_runtime.state.update(
-                gui_runtime.viewport.logical_size(),
-                gui_runtime.cursor_position
-                    .map(|p| {
-                        cursor_position(
-                            p,
-                            gui_runtime.viewport.scale_factor(),
-                        )
-                    })
-                    .map(Cursor::Available)
-                    .unwrap_or(Cursor::Unavailable),
-                    &mut gui_runtime.renderer,
-                &Theme::Dark,
-                &Style {
-                    text_color: Color::WHITE,
-                },
-                &mut gui_runtime.clipboard,
-                &mut gui_runtime.debug,
-            );
-
-            window.request_redraw();
-        }
+        gui_runtime.process_event(event, window.clone())
     }
 }

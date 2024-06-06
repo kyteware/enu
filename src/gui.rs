@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use iced::{widget::{button, text}, Command, Font, Pixels, Size, Theme};
-use iced_wgpu::{graphics::Viewport, Engine, Renderer};
-use iced_winit::{runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window}, Clipboard};
+use iced::{mouse::Cursor, widget::button, window::Id, Color, Command, Font, Pixels, Size, Theme};
+use iced_wgpu::{core::renderer::Style, graphics::Viewport, Engine, Renderer};
+use iced_winit::{conversion::{cursor_position, window_event}, runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, event::WindowEvent, keyboard::ModifiersState, window::Window}, Clipboard};
 
 use crate::gpu::GpuState;
 
@@ -80,6 +80,41 @@ impl GuiRuntime {
             viewport,
             modifiers,
             debug
+        }
+    }
+
+    pub fn process_event(&mut self, event: WindowEvent, window: Arc<Window>) {
+        if let Some(event) = window_event(
+            Id::MAIN,
+            event,
+            window.scale_factor(),
+            self.modifiers
+        ) {
+            self.state.queue_event(event)
+        }
+
+        if !self.state.is_queue_empty() {
+            let _ = self.state.update(
+                self.viewport.logical_size(),
+                self.cursor_position
+                    .map(|p| {
+                        cursor_position(
+                            p,
+                            self.viewport.scale_factor(),
+                        )
+                    })
+                    .map(Cursor::Available)
+                    .unwrap_or(Cursor::Unavailable),
+                    &mut self.renderer,
+                &Theme::Dark,
+                &Style {
+                    text_color: Color::WHITE,
+                },
+                &mut self.clipboard,
+                &mut self.debug,
+            );
+
+            window.request_redraw();
         }
     }
 }
