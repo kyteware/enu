@@ -2,12 +2,12 @@ pub mod gpu;
 pub mod gui;
 pub mod playback;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use gui::GuiRuntime;
-use iced::Size;
+use iced::{Point, Rectangle, Size};
 use iced_wgpu::graphics::Viewport;
-use iced_winit::{conversion::mouse_interaction, winit as winit};
+use iced_winit::{conversion::mouse_interaction, winit::{self as winit, dpi::PhysicalSize}};
 use playback::Playback;
 use wgpu::{CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureUsages};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop, ControlFlow}, window::{Window, WindowId}};
@@ -50,10 +50,11 @@ struct AppRuntime<'a> {
 
 impl<'a> AppRuntime<'a> {
     fn init(event_loop: &ActiveEventLoop) -> AppRuntime<'a> {
-        let window = Arc::new(event_loop.create_window(Window::default_attributes()).unwrap());
+        let viewport_arc = Arc::new(Mutex::new(Rectangle::default()));
+        let window = Arc::new(event_loop.create_window(Window::default_attributes().with_min_inner_size(PhysicalSize::new(600, 400))).unwrap());
         let gpu_state = pollster::block_on(GpuState::init(window.clone()));
-        let gui_runtime = GuiRuntime::init(window.clone(), &gpu_state);
-        let playback = Playback::init(&gpu_state);
+        let gui_runtime = GuiRuntime::init(window.clone(), &gpu_state, viewport_arc.clone());
+        let playback = Playback::init(&gpu_state, viewport_arc.clone());
         AppRuntime { window, gpu_state, gui_runtime, playback }
     }
 }
@@ -67,7 +68,10 @@ impl<'a> ApplicationHandler for App<'a> {
         let AppRuntime { window, gpu_state, gui_runtime, playback } = self.unwrap_running();
 
         gui_runtime.process_event(event.clone(), window.clone());
-
+        let playback_instructions = &gui_runtime.state.program().playback_instructions;
+        for instruction in playback_instructions {
+            playback.process_instruction(instruction)
+        }
 
         match event {
             WindowEvent::CloseRequested => {
@@ -89,7 +93,7 @@ impl<'a> ApplicationHandler for App<'a> {
 
                         {
                             let mut render_pass = GpuState::begin_render_pass(&view, &mut encoder, clear_color);
-                            playback.draw(&mut render_pass)
+                            playback.draw(&mut render_pass);
                         }
 
                         gui_runtime.renderer.present(

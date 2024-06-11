@@ -1,22 +1,27 @@
-use std::sync::Arc;
+mod placeholder;
 
-use iced::{mouse::Cursor, widget::button, window::Id, Color, Command, Font, Pixels, Size, Theme};
+use std::sync::{Arc, Mutex};
+
+use iced::{mouse::Cursor, widget::{button, column}, window::Id, Color, Command, Element, Font, Pixels, Point, Rectangle, Size, Theme};
 use iced_wgpu::{core::renderer::Style, graphics::Viewport, Engine, Renderer};
 use iced_winit::{conversion::{cursor_position, window_event}, runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, event::WindowEvent, keyboard::ModifiersState, window::Window}, Clipboard};
+use placeholder::PlaybackTracker;
 
 use crate::{gpu::GpuState, playback::PlaybackInstruction};
 
 pub struct Gui {
-    /// The instructions for the playback (should be cleared before each update)
+    /// The instructions for the playback
     pub playback_instructions: Vec<PlaybackInstruction>,
-    text: String
+    text: String,
+    viewport_arc: Arc<Mutex<Rectangle<f32>>>
 }
 
 impl Gui {
-    pub fn new() -> Gui {
+    pub fn new(viewport_arc: Arc<Mutex<Rectangle<f32>>>) -> Gui {
         Gui {
             text: "bobb".into(),
-            playback_instructions: vec![]
+            playback_instructions: vec![],
+            viewport_arc
         }
     }
 }
@@ -34,7 +39,7 @@ impl Program for Gui {
     }
 
     fn view(&self) -> iced_wgpu::core::Element<'_, Self::Message, Self::Theme, Self::Renderer> {
-        button(self.text.as_str()).on_press(Message::Oy).into()
+        column!(button("hi"), Element::new(PlaybackTracker::new(self.viewport_arc.clone()))).into()
     }
 }
 
@@ -55,7 +60,7 @@ pub struct GuiRuntime {
 }
 
 impl GuiRuntime {
-    pub fn init(window: Arc<Window>, GpuState { adapter, device, queue, surface_config, .. }: &GpuState) -> GuiRuntime {
+    pub fn init(window: Arc<Window>, GpuState { adapter, device, queue, surface_config, .. }: &GpuState, viewport_arc: Arc<Mutex<Rectangle<f32>>>) -> GuiRuntime {
         let engine = Engine::new(&adapter, &device, &queue, surface_config.format, None); // TODO: antialiasing?
         let mut renderer = Renderer::new(&device, &engine, Font::default(), Pixels::from(16));
         let physical_size = window.inner_size();
@@ -64,7 +69,7 @@ impl GuiRuntime {
             window.scale_factor(),
         );
         let mut debug = Debug::new();
-        let gui = Gui::new();
+        let mut gui = Gui::new(viewport_arc);
         let state = program::State::new(
             gui,
             viewport.logical_size(),

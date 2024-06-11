@@ -1,20 +1,21 @@
+use std::sync::{Arc, Mutex};
+
 use iced::{Point, Rectangle, Size};
 use wgpu::{include_wgsl, util::{BufferInitDescriptor, DeviceExt}, BindGroupLayoutDescriptor, BindingResource, BufferAddress, Texture};
 
 use crate::gpu::GpuState;
 
 pub struct Playback {
-    viewport: Rectangle,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     bg: wgpu::BindGroup,
     video_dimensions: Size<u32>,
-    video_texture: Texture
+    video_texture: Texture,
+    viewport_arc: Arc<Mutex<Rectangle<f32>>>
 }
 
 impl Playback {
-    pub fn init(GpuState { device, queue, surface_config, .. }: &GpuState) -> Playback {
-        let viewport = Rectangle::new(Point::new(50., 50.), Size::new(200., 200.));
+    pub fn init(GpuState { device, queue, surface_config, .. }: &GpuState, viewport_arc: Arc<Mutex<Rectangle<f32>>>) -> Playback {
 
         let (vs_module, fs_module) = (
             device.create_shader_module(include_wgsl!("shaders/vert.wgsl")),
@@ -154,20 +155,28 @@ impl Playback {
         });
 
         Playback {
-            viewport,
             pipeline,
             vertex_buffer,
             bg,
             video_dimensions,
             video_texture,
+            viewport_arc
+        }
+    }
+
+    pub fn process_instruction(&mut self, instruction: &PlaybackInstruction) {
+        match &instruction {
+            PlaybackInstruction::Play => todo!(),
+            PlaybackInstruction::Pause => todo!(),
         }
     }
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        let target = self.viewport_arc.lock().unwrap();
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bg, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_viewport(self.viewport.x, self.viewport.y, self.viewport.width, self.viewport.height, 0., 1.);
+        render_pass.set_viewport(target.x, target.y, target.width, target.height, 0., 1.);
         render_pass.draw(0..6, 0..1);
     }
 }
@@ -228,8 +237,8 @@ const VERTICES: &[Vertex] = &[
     },
 ];
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum PlaybackInstruction {
-    ChangeViewport(Rectangle),
     Play,
     Pause
 }
