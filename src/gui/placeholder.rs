@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use iced::mouse;
 use iced::{Color, Length, Rectangle, Size};
-use iced_wgpu::core::layout::{Limits, Node};
+use iced_wgpu::core::layout::{atomic, Limits, Node};
 use iced_wgpu::core::widget::Tree;
 use iced_wgpu::core::{renderer, Layout, Widget};
 
@@ -33,9 +33,9 @@ where
         &self,
         _tree: &mut Tree,
         _renderer: &Renderer,
-        _limits: &Limits,
+        limits: &Limits,
     ) -> Node {
-        Node::new(Size::new(1920. / 8., 1080. / 8.))
+        atomic(limits, Length::Fill, Length::Fill)
     }
 
     fn draw(

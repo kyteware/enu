@@ -39,7 +39,7 @@ impl Program for Gui {
     }
 
     fn view(&self) -> iced_wgpu::core::Element<'_, Self::Message, Self::Theme, Self::Renderer> {
-        column!(button("hi"), Element::new(PlaybackTracker::new(self.viewport_arc.clone()))).into()
+        column!(Element::new(PlaybackTracker::new(self.viewport_arc.clone())), button("hi")).into()
     }
 }
 
@@ -69,7 +69,7 @@ impl GuiRuntime {
             window.scale_factor(),
         );
         let mut debug = Debug::new();
-        let mut gui = Gui::new(viewport_arc);
+        let gui = Gui::new(viewport_arc);
         let state = program::State::new(
             gui,
             viewport.logical_size(),
