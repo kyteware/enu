@@ -5,7 +5,7 @@ pub mod playback;
 use std::sync::{Arc, Mutex};
 
 use gui::GuiRuntime;
-use iced::{Point, Rectangle, Size};
+use iced::{Rectangle, Size};
 use iced_wgpu::graphics::Viewport;
 use iced_winit::{conversion::mouse_interaction, winit::{self as winit, dpi::PhysicalSize}};
 use playback::Playback;

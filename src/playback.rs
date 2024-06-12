@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use iced::{Point, Rectangle, Size};
+use iced::{Rectangle, Size};
 use wgpu::{include_wgsl, util::{BufferInitDescriptor, DeviceExt}, BindGroupLayoutDescriptor, BindingResource, BufferAddress, Texture};
 
 use crate::gpu::GpuState;

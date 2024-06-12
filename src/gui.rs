@@ -2,7 +2,7 @@ mod placeholder;
 
 use std::sync::{Arc, Mutex};
 
-use iced::{mouse::Cursor, widget::{button, column}, window::Id, Color, Command, Element, Font, Pixels, Point, Rectangle, Size, Theme};
+use iced::{mouse::Cursor, widget::{button, column}, window::Id, Color, Command, Element, Font, Pixels, Rectangle, Size, Theme};
 use iced_wgpu::{core::renderer::Style, graphics::Viewport, Engine, Renderer};
 use iced_winit::{conversion::{cursor_position, window_event}, runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, event::WindowEvent, keyboard::ModifiersState, window::Window}, Clipboard};
 use placeholder::PlaybackTracker;
