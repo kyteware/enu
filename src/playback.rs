@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use iced::{Rectangle, Size};
-use wgpu::{include_wgsl, util::{BufferInitDescriptor, DeviceExt}, BindGroupLayoutDescriptor, BindingResource, BufferAddress, Texture};
+use wgpu::{include_wgsl, util::{BufferInitDescriptor, DeviceExt}, BindGroupLayoutDescriptor, BindingResource, BufferAddress, Extent3d, ImageCopyTexture, ImageCopyTextureBase, Texture};
 
-use crate::gpu::GpuState;
+use crate::{gpu::GpuState, loader::{LoaderPlaybackHandle, LoaderPlaybackMessage}};
 
 pub struct Playback {
     pipeline: wgpu::RenderPipeline,
@@ -11,12 +11,12 @@ pub struct Playback {
     bg: wgpu::BindGroup,
     video_dimensions: Size<u32>,
     video_texture: Texture,
-    viewport_arc: Arc<Mutex<Rectangle<f32>>>
+    viewport_arc: Arc<Mutex<Rectangle<f32>>>,
+    loader: LoaderPlaybackHandle
 }
 
 impl Playback {
-    pub fn init(GpuState { device, queue, surface_config, .. }: &GpuState, viewport_arc: Arc<Mutex<Rectangle<f32>>>) -> Playback {
-
+    pub fn init(GpuState { device, queue, surface_config, .. }: &GpuState, loader: LoaderPlaybackHandle, viewport_arc: Arc<Mutex<Rectangle<f32>>>) -> Playback {
         let (vs_module, fs_module) = (
             device.create_shader_module(include_wgsl!("shaders/vert.wgsl")),
             device.create_shader_module(include_wgsl!("shaders/frag.wgsl")),
@@ -160,7 +160,8 @@ impl Playback {
             bg,
             video_dimensions,
             video_texture,
-            viewport_arc
+            viewport_arc,
+            loader
         }
     }
 
@@ -168,6 +169,37 @@ impl Playback {
         match &instruction {
             PlaybackInstruction::Play => todo!(),
             PlaybackInstruction::Pause => todo!(),
+        }
+    }
+
+    pub fn process_loader_messages(&mut self, GpuState { queue, .. }: &GpuState) {
+        let mut next_frame = None;
+        while let Some(msg) = self.loader.next_message() {
+            if let LoaderPlaybackMessage::NewFrame { frame, .. } = msg {
+                next_frame = Some(frame);
+            }
+        }
+
+        if let Some(frame) = next_frame {
+            queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &self.video_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                frame.as_bytes(),
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * self.video_dimensions.width),
+                    rows_per_image: Some(self.video_dimensions.height),
+                },
+                Extent3d {
+                    width: self.video_dimensions.width,
+                    height: self.video_dimensions.height,
+                    depth_or_array_layers: 1,
+                }
+            );
         }
     }
 

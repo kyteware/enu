@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use iced::{mouse::Cursor, widget::{button, column}, window::Id, Color, Command, Element, Font, Pixels, Rectangle, Size, Theme};
 use iced_wgpu::{core::renderer::Style, graphics::Viewport, Engine, Renderer};
+use iced_widget::row;
 use iced_winit::{conversion::{cursor_position, window_event}, runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, event::WindowEvent, keyboard::ModifiersState, window::Window}, Clipboard};
 use placeholder::PlaybackTracker;
 
@@ -12,16 +13,16 @@ use crate::{gpu::GpuState, playback::PlaybackInstruction};
 pub struct Gui {
     /// The instructions for the playback
     pub playback_instructions: Vec<PlaybackInstruction>,
-    text: String,
-    viewport_arc: Arc<Mutex<Rectangle<f32>>>
+    viewport_arc: Arc<Mutex<Rectangle<f32>>>,
+    playing: bool
 }
 
 impl Gui {
     pub fn new(viewport_arc: Arc<Mutex<Rectangle<f32>>>) -> Gui {
         Gui {
-            text: "bobb".into(),
             playback_instructions: vec![],
-            viewport_arc
+            viewport_arc,
+            playing: false
         }
     }
 }
@@ -32,20 +33,35 @@ impl Program for Gui {
     type Message = Message;
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        if message == Message::Oy {
-            println!("hi")
+        self.playback_instructions.clear();
+        match message {
+            Message::Play => {
+                self.playing = true;
+                self.playback_instructions.push(PlaybackInstruction::Play);
+                Command::none()
+            },
+            Message::Pause => {
+                self.playing = false;
+                self.playback_instructions.push(PlaybackInstruction::Pause);
+                Command::none()
+            },
         }
-        Command::none()
     }
 
     fn view(&self) -> iced_wgpu::core::Element<'_, Self::Message, Self::Theme, Self::Renderer> {
-        column!(Element::new(PlaybackTracker::new(self.viewport_arc.clone())), button("hi")).into()
+        let control = if self.playing {
+            button("pause").on_press(Message::Pause)
+        } else {
+            button("play").on_press(Message::Play)
+        };
+        row!(control, Element::new(PlaybackTracker::new(self.viewport_arc.clone()))).into()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
-    Oy
+    Play,
+    Pause
 }
 
 pub struct GuiRuntime {

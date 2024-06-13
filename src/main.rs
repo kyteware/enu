@@ -1,5 +1,6 @@
 pub mod gpu;
 pub mod gui;
+pub mod loader;
 pub mod playback;
 
 use std::sync::{Arc, Mutex};
@@ -8,6 +9,7 @@ use gui::GuiRuntime;
 use iced::{Rectangle, Size};
 use iced_wgpu::graphics::Viewport;
 use iced_winit::{conversion::mouse_interaction, winit::{self as winit, dpi::PhysicalSize}};
+use loader::Loader;
 use playback::Playback;
 use wgpu::{CompositeAlphaMode, PresentMode, SurfaceConfiguration, TextureUsages};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop, ControlFlow}, window::{Window, WindowId}};
@@ -51,10 +53,11 @@ struct AppRuntime<'a> {
 impl<'a> AppRuntime<'a> {
     fn init(event_loop: &ActiveEventLoop) -> AppRuntime<'a> {
         let viewport_arc = Arc::new(Mutex::new(Rectangle::default()));
+        let (loader, loader_playback_handle) = Loader::init();
         let window = Arc::new(event_loop.create_window(Window::default_attributes().with_min_inner_size(PhysicalSize::new(600, 400))).unwrap());
         let gpu_state = pollster::block_on(GpuState::init(window.clone()));
         let gui_runtime = GuiRuntime::init(window.clone(), &gpu_state, viewport_arc.clone());
-        let playback = Playback::init(&gpu_state, viewport_arc.clone());
+        let playback = Playback::init(&gpu_state, loader_playback_handle, viewport_arc.clone());
         AppRuntime { window, gpu_state, gui_runtime, playback }
     }
 }
@@ -81,6 +84,8 @@ impl<'a> ApplicationHandler for App<'a> {
             WindowEvent::RedrawRequested => {
                 match gpu_state.surface.get_current_texture() {
                     Ok(frame) => {
+                        playback.process_loader_messages(&gpu_state);
+
                         let mut encoder = gpu_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: None,
                         });
