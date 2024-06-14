@@ -33,7 +33,6 @@ impl Program for Gui {
     type Message = Message;
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        self.playback_instructions.clear();
         match message {
             Message::Play => {
                 self.playing = true;
@@ -45,23 +44,29 @@ impl Program for Gui {
                 self.playback_instructions.push(PlaybackInstruction::Pause);
                 Command::none()
             },
+            Message::Restart => {
+                self.playback_instructions.push(PlaybackInstruction::Restart);
+                Command::none()
+            }
         }
     }
 
     fn view(&self) -> iced_wgpu::core::Element<'_, Self::Message, Self::Theme, Self::Renderer> {
-        let control = if self.playing {
+        let playpause = if self.playing {
             button("pause").on_press(Message::Pause)
         } else {
             button("play").on_press(Message::Play)
         };
-        row!(control, Element::new(PlaybackTracker::new(self.viewport_arc.clone()))).into()
+        let restart = button("restart").on_press(Message::Restart);
+        row!(playpause, restart, Element::new(PlaybackTracker::new(self.viewport_arc.clone()))).into()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     Play,
-    Pause
+    Pause,
+    Restart
 }
 
 pub struct GuiRuntime {

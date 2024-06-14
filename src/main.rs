@@ -71,10 +71,11 @@ impl<'a> ApplicationHandler for App<'a> {
         let AppRuntime { window, gpu_state, gui_runtime, playback } = self.unwrap_running();
 
         gui_runtime.process_event(event.clone(), window.clone());
-        let playback_instructions = &gui_runtime.state.program().playback_instructions;
-        for instruction in playback_instructions {
+        let playback_instructions = &mut gui_runtime.state.program_mut().playback_instructions;
+        for instruction in playback_instructions.iter() {
             playback.process_instruction(instruction)
         }
+        playback_instructions.clear();
 
         match event {
             WindowEvent::CloseRequested => {
@@ -84,7 +85,8 @@ impl<'a> ApplicationHandler for App<'a> {
             WindowEvent::RedrawRequested => {
                 match gpu_state.surface.get_current_texture() {
                     Ok(frame) => {
-                        playback.process_loader_messages(&gpu_state);
+                        playback.process_loader_messages();
+                        playback.decide_next_frame(&gpu_state);
 
                         let mut encoder = gpu_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: None,

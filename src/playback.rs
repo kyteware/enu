@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use iced::{Rectangle, Size};
+use image::DynamicImage;
 use wgpu::{include_wgsl, util::{BufferInitDescriptor, DeviceExt}, BindGroupLayoutDescriptor, BindingResource, BufferAddress, Extent3d, ImageCopyTexture, ImageCopyTextureBase, Texture};
 
 use crate::{gpu::GpuState, loader::{LoaderPlaybackHandle, LoaderPlaybackMessage}};
@@ -12,7 +13,9 @@ pub struct Playback {
     video_dimensions: Size<u32>,
     video_texture: Texture,
     viewport_arc: Arc<Mutex<Rectangle<f32>>>,
-    loader: LoaderPlaybackHandle
+    loader: LoaderPlaybackHandle,
+    frames: Vec<Box<DynamicImage>>,
+    current_frame: usize
 }
 
 impl Playback {
@@ -161,7 +164,9 @@ impl Playback {
             video_dimensions,
             video_texture,
             viewport_arc,
-            loader
+            loader,
+            frames: vec![],
+            current_frame: 0
         }
     }
 
@@ -169,18 +174,22 @@ impl Playback {
         match &instruction {
             PlaybackInstruction::Play => todo!(),
             PlaybackInstruction::Pause => todo!(),
+            PlaybackInstruction::Restart => {
+                self.current_frame = 0
+            }
         }
     }
 
-    pub fn process_loader_messages(&mut self, GpuState { queue, .. }: &GpuState) {
-        let mut next_frame = None;
+    pub fn process_loader_messages(&mut self) {
         while let Some(msg) = self.loader.next_message() {
-            if let LoaderPlaybackMessage::NewFrame { frame, .. } = msg {
-                next_frame = Some(frame);
-            }
+            let LoaderPlaybackMessage::NewFrame { frame, .. } = msg;
+            self.frames.push(frame);
         }
+    }
 
-        if let Some(frame) = next_frame {
+    pub fn decide_next_frame(&mut self, GpuState { queue, .. }: &GpuState) {
+        dbg!(self.current_frame);
+        if self.current_frame < self.frames.len() - 1 {
             queue.write_texture(
                 wgpu::ImageCopyTexture {
                     texture: &self.video_texture,
@@ -188,7 +197,7 @@ impl Playback {
                     origin: wgpu::Origin3d::ZERO,
                     aspect: wgpu::TextureAspect::All,
                 },
-                frame.as_bytes(),
+                self.frames[self.current_frame].as_bytes(),
                 wgpu::ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(4 * self.video_dimensions.width),
@@ -200,6 +209,8 @@ impl Playback {
                     depth_or_array_layers: 1,
                 }
             );
+
+            self.current_frame += 1;
         }
     }
 
@@ -272,5 +283,6 @@ const VERTICES: &[Vertex] = &[
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlaybackInstruction {
     Play,
-    Pause
+    Pause,
+    Restart
 }
