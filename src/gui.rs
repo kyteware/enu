@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use iced::{mouse::Cursor, widget::{button, column}, window::Id, Color, Command, Element, Font, Pixels, Rectangle, Size, Theme};
 use iced_wgpu::{core::renderer::Style, graphics::Viewport, Engine, Renderer};
-use iced_widget::row;
+use iced_widget::{row, slider};
 use iced_winit::{conversion::{cursor_position, window_event}, runtime::{program, Debug, Program}, winit::{dpi::PhysicalPosition, event::WindowEvent, keyboard::ModifiersState, window::Window}, Clipboard};
 use placeholder::PlaybackTracker;
 
@@ -44,8 +44,8 @@ impl Program for Gui {
                 self.playback_instructions.push(PlaybackInstruction::Pause);
                 Command::none()
             },
-            Message::Restart => {
-                self.playback_instructions.push(PlaybackInstruction::Restart);
+            Message::SkipTo(frame) => {
+                self.playback_instructions.push(PlaybackInstruction::SkipTo(frame));
                 Command::none()
             }
         }
@@ -57,8 +57,8 @@ impl Program for Gui {
         } else {
             button("play").on_press(Message::Play)
         };
-        let restart = button("restart").on_press(Message::Restart);
-        row!(playpause, restart, Element::new(PlaybackTracker::new(self.viewport_arc.clone()))).into()
+        let control = slider(0..=1000, 0, |x| Message::SkipTo(x as usize));
+        column!(Element::new(PlaybackTracker::new(self.viewport_arc.clone())), playpause, control).into()
     }
 }
 
@@ -66,7 +66,7 @@ impl Program for Gui {
 pub enum Message {
     Play,
     Pause,
-    Restart
+    SkipTo(usize)
 }
 
 pub struct GuiRuntime {

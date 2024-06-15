@@ -15,7 +15,8 @@ pub struct Playback {
     viewport_arc: Arc<Mutex<Rectangle<f32>>>,
     loader: LoaderPlaybackHandle,
     frames: Vec<Box<DynamicImage>>,
-    current_frame: usize
+    current_frame: usize,
+    playing: bool
 }
 
 impl Playback {
@@ -166,16 +167,17 @@ impl Playback {
             viewport_arc,
             loader,
             frames: vec![],
-            current_frame: 0
+            current_frame: 0,
+            playing: true
         }
     }
 
     pub fn process_instruction(&mut self, instruction: &PlaybackInstruction) {
         match &instruction {
-            PlaybackInstruction::Play => todo!(),
-            PlaybackInstruction::Pause => todo!(),
-            PlaybackInstruction::Restart => {
-                self.current_frame = 0
+            PlaybackInstruction::Play => self.playing = true,
+            PlaybackInstruction::Pause => self.playing = false,
+            PlaybackInstruction::SkipTo(frame) => {
+                self.current_frame = *frame
             }
         }
     }
@@ -189,7 +191,7 @@ impl Playback {
 
     pub fn decide_next_frame(&mut self, GpuState { queue, .. }: &GpuState) {
         dbg!(self.current_frame);
-        if self.current_frame < self.frames.len() - 1 {
+        if self.current_frame < self.frames.len() - 1 && self.playing {
             queue.write_texture(
                 wgpu::ImageCopyTexture {
                     texture: &self.video_texture,
@@ -284,5 +286,5 @@ const VERTICES: &[Vertex] = &[
 pub enum PlaybackInstruction {
     Play,
     Pause,
-    Restart
+    SkipTo(usize)
 }
